@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PCP - JACO AGRO CENTRAL DE CONTROLES AGRICOLAS V30.1 - ALTURA OTIMIZADA FINAL</title>
+    
+    <style>
+        /* ========================================================= */
+        /* 1. ESTILOS BASE (Comuns para ambos os temas)              */
+        /* ========================================================= */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 15px 15px 0 15px; 
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            box-sizing: border-box;
+            overflow: hidden; 
+            transition: background-color 0.3s, color 0.3s; 
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            height: 70px; 
+            border-bottom-width: 1px;
+            border-bottom-style: solid;
+            transition: border-color 0.3s;
+        }
+
+        h1 { 
+            margin: 0; 
+            font-size: 50px; 
+            text-transform: uppercase; 
+            letter-spacing: 5px; 
+            font-weight: 900; 
+            transition: color 0.3s;
+        }
+        
+        #relogio { 
+            font-size: 30px; 
+            font-weight: bold; 
+            transition: color 0.3s;
+        }
+
+        /* Botão de Alternância de Tema */
+        #theme-toggle {
+            cursor: pointer;
+            font-size: 30px;
+            margin-left: 15px;
+            padding: 5px;
+            border: none;
+            background: none;
+            line-height: 1; 
+            transition: transform 0.2s;
+        }
+        #theme-toggle:hover {
+             transform: scale(1.1);
+        }
+
+        /* --- COMMODITY CARDS --- */
+        .commodity-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr); 
+            gap: 20px; 
+            /* V30.1: REDUZIDO PARA 300px (ERA 320px) para liberar mais 20px */
+            height: 300px; 
+            margin-bottom: 20px;
+        }
+
+        .commodity-card, .card {
+            border-radius: 12px;
+            padding: 10px; /* Padding reduzido para deixar os elementos internos mais compactos */
+            box-shadow: 0 8px 15px rgba(0,0,0,0.4); 
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-around;
+            align-items: center;
+            overflow: hidden;
+            transition: background-color 0.3s, box-shadow 0.3s;
+        }
+        
+        /* Reset para Cards não commodity */
+        .card { 
+            padding: 0; 
+            text-align: left;
+        }
+
+        .commodity-icon-lg {
+            width: 130px; 
+            height: 130px; 
+            object-fit: contain;
+            margin-bottom: 5px; /* Margem reduzida */
+        }
+
+        .commodity-title {
+            font-size: 17px; /* Fonte do título menor */
+            font-weight: bold;
+            margin: 5px 0; /* Margem reduzida */
+            transition: color 0.3s;
+        }
+
+        .commodity-price {
+            font-size: 38px; /* Fonte do preço menor */
+            font-weight: bold;
+            transition: color 0.3s;
+        }
+        
+        .commodity-ref {
+            font-size: 13px; /* Fonte de referência menor */
+            margin-top: 3px;
+            margin-bottom: 3px;
+            line-height: 1.2;
+            transition: color 0.3s;
+        }
+
+        /* --- WIDGETS INFERIORES --- */
+        .widget-grid {
+            display: grid;
+            grid-template-columns: 3fr 2fr; 
+            gap: 20px;
+            /* V30.1: NOVO CÁLCULO: 515px - 20px (da redução dos cards) = 495px */
+            height: calc(100vh - 495px); 
+        }
+
+        .widget-grid-col-2 {
+            display: flex;
+            flex-direction: column;
+            gap: 20px; 
+        }
+        
+        .widget-half {
+            height: 50%; 
+            box-sizing: border-box;
+        }
+
+        .card-title {
+            font-size: 15px; /* Título do card ainda menor */
+            padding: 7px 10px; /* Padding reduzido */
+            font-weight: 700;
+            text-transform: uppercase;
+            border-bottom-width: 1px;
+            border-bottom-style: solid;
+            transition: color 0.3s, background-color 0.3s, border-color 0.3s;
+        }
+        
+        iframe { border: none; width: 100%; height: 100%; }
+
+        /* Estilo da Tabela de Detalhe (mais compacto) */
+        .manual-table-card {
+             padding: 0; /* REMOVENDO PADDING AQUI E COLOCANDO APENAS NO TD/TH */
+             justify-content: flex-start; 
+        }
+        .price-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px; /* Fonte da tabela ainda menor */
+        }
+        .price-table th {
+            text-align: left;
+            padding: 5px; 
+            border-bottom-width: 2px;
+            border-bottom-style: solid;
+            font-weight: 700;
+            font-size: 14px; /* Fonte do cabeçalho da tabela menor */
+            transition: color 0.3s, border-color 0.3s;
+        }
+        .price-table td {
+            padding: 4px 5px; /* Padding vertical reduzido para 4px */
+            border-bottom-width: 1px;
+            border-bottom-style: solid;
+            vertical-align: middle;
+            transition: color 0.3s, border-color 0.3s;
+        }
+        .price-table .price-value {
+            font-weight: bold;
+            font-size: 14px; /* Valor da tabela menor */
+            text-align: right;
+            transition: color 0.3s;
+        }
+
+        /* --- Ticker Tape --- */
+        .ticker-tape-container {
+            width: 100%;
+            height: 50px;
+            margin-top: 20px; 
+            border-radius: 8px;
+            background-color: #000000; 
+        }
+
+
+        /* ========================================================= */
+        /* 2. TEMA ESCURO (Padrão)                                   */
+        /* ========================================================= */
+        .theme-dark {
+            background-color: #121212; 
+            color: #E0E0E0; 
+        }
+        .theme-dark header {
+            border-bottom-color: #4CAF50;
+        }
+        .theme-dark h1, .theme-dark #relogio, .theme-dark .card-title {
+            color: #A5D6A7; 
+        }
+        .theme-dark .commodity-card, .theme-dark .card {
+            background-color: #212121; 
+            box-shadow: 0 8px 15px rgba(0,0,0,0.6); 
+        }
+        .theme-dark .commodity-title {
+            color: #C8E6C9; 
+        }
+        .theme-dark .commodity-price, .theme-dark .price-value {
+            color: #4CAF50; 
+        }
+        .theme-dark .commodity-ref {
+            color: #9E9E9E; 
+        }
+        .theme-dark .card-title {
+            background-color: #2D2D2D; 
+            border-bottom-color: #4CAF50;
+        }
+        .theme-dark .price-table th {
+            color: #A5D6A7; 
+            border-bottom-color: #4CAF50;
+        }
+        .theme-dark .price-table td {
+            color: #E0E0E0;
+            border-bottom-color: #333;
+        }
+        
+        
+        /* ========================================================= */
+        /* 3. TEMA CLARO                                             */
+        /* ========================================================= */
+        .theme-light {
+            background-color: #F1F8EE; 
+            color: #333; 
+        }
+        .theme-light header {
+            border-bottom-color: #388E3C;
+        }
+        .theme-light h1 {
+            color: #1B5E20; 
+        }
+        .theme-light #relogio {
+            color: #333; 
+        }
+        .theme-light .commodity-card, .theme-light .card {
+            background-color: #FFFFFF;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15); 
+        }
+        .theme-light .commodity-title {
+            color: #388E3C; 
+        }
+        .theme-light .commodity-price, .theme-light .price-value {
+            color: #1A531A; 
+        }
+        .theme-light .commodity-ref {
+            color: #666; 
+        }
+        .theme-light .card-title {
+            color: #388E3C;
+            background-color: #E0F2F1; 
+            border-bottom-color: #B2DFDB;
+        }
+        .theme-light .price-table th {
+            color: #1B5E20; 
+            border-bottom-color: #388E3C;
+        }
+        .theme-light .price-table td {
+            color: #555;
+            border-bottom-color: #E0E0E0;
+        }
+
+    </style>
+</head>
+<body class="theme-dark"> 
+
+    <header>
+        <h1>PCP - JACO AGRO CENTRAL DE CONTROLES AGRICOLAS</h1>
+        <div style="display: flex; align-items: center;">
+            <div id="relogio">--:--:--</div>
+            <button id="theme-toggle" title="Alternar Tema">🌚</button>
+        </div>
+    </header>
+    
+    <div class="commodity-grid">
+        
+        <div class="commodity-card">
+            <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQLlA3TZgWXoNb9vAyLjfftIPgGxBFwAEpREg&s" alt="Icone Boi" class="commodity-icon-lg">
+            <div class="commodity-title">BOI GORDO</div>
+            <div class="commodity-price">R$ 301,40</div> 
+            <div class="commodity-ref">@ (15 KG) | 25/11/2025 | Campo Novo do Parecis | Fonte: IMEA</div>
+        </div>
+
+        <div class="commodity-card">
+            <img src="https://cdn-icons-png.flaticon.com/512/3944/3944095.png" alt="Icone Soja" class="commodity-icon-lg">
+            <div class="commodity-title">SOJA</div>
+            <div class="commodity-price">R$ 98,00</div> 
+            <div class="commodity-ref">SACA 60 KG | 25/11/2025 | Campo Novo do Parecis | Fonte: IMEA</div>
+        </div>
+
+        <div class="commodity-card">
+            <img src="https://img.freepik.com/vetores-premium/modelo-de-icone-de-milho_717549-1521.jpg" alt="Icone Milho" class="commodity-icon-lg">
+            <div class="commodity-title">MILHO</div>
+            <div class="commodity-price">R$ 46,60</div> 
+            <div class="commodity-ref">SACA 60 KG | 25/11/2025 | Campo Novo do Parecis | Fonte: IMEA</div>
+        </div>
+
+        <div class="commodity-card">
+            <img src="https://cdn-icons-png.flaticon.com/512/518/518985.png" alt="Icone Algodão" class="commodity-icon-lg">
+            <div class="commodity-title">ALGODÃO</div>
+            <div class="commodity-price" style="font-size: 32px;">R$ 105,52 / R$ 874,16</div> 
+            <div class="commodity-ref">PLUMA (LB-P) / CAROÇO (T) | 25/11/2025 | Fonte: IMEA-MT</div>
+        </div>
+        
+    </div>
+
+    <div class="widget-grid">
+        
+        <div class="card"> 
+            <iframe width="100%" height="100%" 
+                src="https://embed.windy.com/embed.html?type=map&location=coordinates&metricRain=mm&metricTemp=%C2%B0C&metricWind=default&zoom=7&overlay=rain&product=ecmwf&level=surface&lat=-13.507&lon=-58.162&detailLat=-13.742053062720384&detailLon=-57.87048339843751&marker=true" 
+                frameborder="0">
+            </iframe>
+        </div>
+
+        <div class="widget-grid-col-2">
+            
+            <div class="card widget-half manual-table-card">
+                <div class="card-title">DETALHE DE COTAÇÕES (USD/BRL)</div>
+                
+                <table class="price-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 45%;">Commodity/Index</th>
+                            <th style="width: 55%; text-align: right;" colspan="2">Preço (R$)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><span class="commodity-ref" style="font-size: 13px;">Soja (ESALQ/B3 - Paranaguá)</span></td>
+                            <td class="price-value" colspan="2">R$ 124,55</td> </tr>
+                        <tr>
+                            <td><span class="commodity-ref" style="font-size: 13px;">Futuro Milho (Esalq/B3)</span></td>
+                            <td class="price-value" colspan="2">R$ 66,28</td> </tr>
+                        <tr>
+                            <td><span class="commodity-ref" style="font-size: 13px;">Futuro Boi (B3)</span></td>
+                            <td class="price-value" colspan="2">R$ 328,90</td> </tr>
+                        <tr>
+                            <td><span class="commodity-ref" style="font-size: 13px;">Boi Gordo (CEPEA a Prazo)</span></td>
+                            <td class="price-value" colspan="2">R$ 332,56</td> </tr>
+                        <tr>
+                            <td><span class="commodity-ref" style="font-size: 13px;">Taxa Câmbio (Ptax)</span></td>
+                            <td class="price-value" colspan="2">R$ 5,2387</td> </tr>
+                        </tbody>
+                </table>
+            </div>
+
+            <div class="card widget-half">
+                 <div class="card-title">Cotação Dólar (USD/BRL)</div>
+                <div class="tradingview-widget-container" style="height: calc(100% - 29px); width: 100%;">
+                  <div id="tradingview_usdbrl" style="height: 100%;"></div>
+                  <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+                  <script type="text/javascript">
+                  new TradingView.widget(
+                  {
+                  "container_id": "tradingview_usdbrl",
+                  "autosize": true,
+                  "symbol": "FX_IDC:USDBRL",
+                  "interval": "D",
+                  "timezone": "America/Sao_Paulo",
+                  "theme": "dark", 
+                  "style": "1",
+                  "locale": "br",
+                  "toolbar_bg": "#212121",
+                  "enable_publishing": false,
+                  "hide_side_toolbar": true, 
+                  "allow_symbol_change": false,
+                  "studies": [], 
+                  "show_popup_button": false, 
+                  "details": false, 
+                  "withdateranges": false,
+                  "hide_legend": true
+                }
+                  );
+                  </script>
+                </div>
+            </div>
+            
+        </div>
+        
+    </div>
+    
+    <div class="ticker-tape-container">
+        <div class="tradingview-widget-container" style="height:100%;width:100%">
+          <div class="tradingview-widget-container__widget" style="height:100%;width:100%"></div>
+          <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-ticker-tape.js" async>
+          {
+          "symbols": [
+            { "proName": "FX_IDC:USDBRL", "title": "Dólar" },
+            { "proName": "BITSTAMP:BTCUSD", "title": "Bitcoin" },
+            { "proName": "NYSE:VDE", "title": "Energia ETF" },
+            { "proName": "NYSE:CVX", "title": "Chevron (Petróleo)" },
+            { "proName": "NYSE:ADM", "title": "Agro/Etanol (Proxy)" }
+          ],
+          "showSymbolLogo": true,
+          "isTransparent": false, 
+          "displayMode": "adaptive",
+          "colorTheme": "dark",
+          "locale": "br",
+          "height": 50
+        }
+          </script>
+        </div>
+    </div>
+
+
+    <script>
+        // Script do Relógio e Data
+        function atualizarRelogio() {
+            const agora = new Date();
+            const opcoes = { hour: '2-digit', minute: '2-digit', second: '2-digit' };
+            document.getElementById('relogio').innerText = agora.toLocaleTimeString('pt-BR', opcoes);
+        }
+        
+        document.addEventListener('DOMContentLoaded', () => {
+             const hoje = new Date();
+             const dia = String(hoje.getDate()).padStart(2, '0');
+             const mes = String(hoje.getMonth() + 1).padStart(2, '0'); 
+             const ano = hoje.getFullYear();
+             const dataAtual = `${dia}/${mes}/${ano}`;
+             
+             document.querySelectorAll('.commodity-ref').forEach(el => {
+                 // Note: O regex é usado para substituir a data estática por uma data dinâmica.
+                 el.innerHTML = el.innerHTML.replace(/\d{2}\/\d{2}\/\d{4}/g, dataAtual);
+             });
+        });
+        
+        setInterval(atualizarRelogio, 1000);
+        atualizarRelogio();
+        
+        // Script V30.1: Alternância de Tema
+        const toggleButton = document.getElementById('theme-toggle');
+        const body = document.body;
+        const tradingviewWidget = document.querySelector('#tradingview_usdbrl');
+        
+        // Define o estado inicial do botão (Dark Mode padrão)
+        toggleButton.textContent = '🌚';
+
+        // Função principal de alternância de tema
+        function toggleTheme() {
+            const isDarkMode = body.classList.toggle('theme-dark');
+            body.classList.toggle('theme-light', !isDarkMode);
+            
+            toggleButton.textContent = isDarkMode ? '🌚' : '🌞'; 
+
+            // Atualiza o tema do TradingView (Gráfico USD/BRL)
+            const newTheme = isDarkMode ? 'dark' : 'light';
+            const newToolbarBg = isDarkMode ? '#212121' : '#f1f3f6';
+            
+            // Recarrega o widget do TradingView
+            while (tradingviewWidget.firstChild) {
+                tradingviewWidget.removeChild(tradingviewWidget.firstChild);
+            }
+            
+            const script = document.createElement('script');
+            script.type = 'text/javascript';
+            script.innerHTML = `
+                new TradingView.widget(
+                {
+                  "container_id": "tradingview_usdbrl",
+                  "autosize": true,
+                  "symbol": "FX_IDC:USDBRL",
+                  "interval": "D",
+                  "timezone": "America/Sao_Paulo",
+                  "theme": "${newTheme}",
+                  "style": "1",
+                  "locale": "br",
+                  "toolbar_bg": "${newToolbarBg}",
+                  "enable_publishing": false,
+                  "hide_side_toolbar": true, 
+                  "allow_symbol_change": false,
+                  "studies": [], 
+                  "show_popup_button": false, 
+                  "details": false, 
+                  "withdateranges": false,
+                  "hide_legend": true
+                }
+                );
+            `;
+            tradingviewWidget.appendChild(script);
+        }
+        
+        // Adiciona o listener de evento
+        toggleButton.addEventListener('click', toggleTheme);
+
+    </script>
+
+</body>
+</html>

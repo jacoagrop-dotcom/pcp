@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Controle de Colheita Soja 25/26 - Grupo Jacó Agro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+        body { background-color: #f1f5f9; font-family: 'Inter', sans-serif; padding: 30px; }
+        .card { background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; }
+        .chart-container { position: relative; height: 180px; width: 180px; margin: 0 auto; }
+        .label-header { font-size: 12px; font-weight: 800; color: #64748b; letter-spacing: 0.05em; }
+        
+        #modal { display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.75); z-index: 50; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
+        .modal-content { background: white; width: 95%; max-width: 1000px; max-height: 90vh; overflow-y: auto; border-radius: 16px; position: relative; }
+        
+        thead { position: sticky; top: 0; background: #f8fafc; z-index: 10; }
+        .search-input { width: 100%; padding: 10px 15px; border: 2px solid #e2e8f0; border-radius: 8px; margin-bottom: 15px; outline: none; transition: border-color 0.2s; }
+        .search-input:focus { border-color: #3b82f6; }
+    </style>
+</head>
+<body>
+
+    <div id="modal" onclick="closeModal()">
+        <div class="modal-content p-8 shadow-2xl" onclick="event.stopPropagation()">
+            <div class="flex justify-between items-center mb-4 border-b pb-4">
+                <div>
+                    <h2 id="modalTitle" class="text-2xl font-extrabold text-slate-800">Fazenda</h2>
+                    <p class="text-sm font-bold text-slate-400 uppercase tracking-widest">Detalhamento de Colheita</p>
+                </div>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-red-500 text-3xl font-bold">&times;</button>
+            </div>
+
+            <input type="text" id="searchInput" class="search-input" placeholder="🔍 Pesquisar por talhão, fazenda ou variedade..." onkeyup="filterTable()">
+            
+            <div class="overflow-hidden rounded-lg border border-slate-200">
+                <table class="min-w-full divide-y divide-slate-200" id="mainTable">
+                    <thead class="bg-slate-50">
+                        <tr id="tableHeader"></tr>
+                    </thead>
+                    <tbody id="talhoesTable" class="bg-white divide-y divide-slate-100"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="card p-6 mb-8 flex justify-between items-center border-l-8 border-orange-500">
+        <div>
+            <h1 class="text-2xl font-extrabold text-slate-800 uppercase tracking-tight">Controle de Colheita Soja 25/26</h1>
+            <p class="text-sm font-semibold text-slate-400">Grupo Jacó Agro</p>
+        </div>
+        <div class="bg-slate-50 p-4 rounded-lg border border-slate-200 text-right">
+            <p class="label-header">ÁREA TOTAL: <span class="text-slate-900 text-lg">26.888 ha</span></p>
+            <p class="label-header text-orange-600">COLHIDO: <span class="text-lg">7.226 ha</span></p>
+        </div>
+    </div>
+
+    <div class="card p-8 mb-10">
+        <h2 class="label-header mb-6 uppercase">Média de Produtividade (SC/HA)</h2>
+        <div style="height: 550px;">
+            <canvas id="rankingChart"></canvas>
+        </div>
+    </div>
+
+    <div id="farmGrid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-8"></div>
+
+    <div class="card p-8 mt-10 mb-10 overflow-hidden">
+        <div class="flex justify-between items-center mb-6">
+            <div>
+                <h2 class="label-header uppercase">Relatório Detalhado de Colheita</h2>
+                <p class="text-[10px] font-bold text-slate-400">LISTAGEM COMPLETA POR TALHÃO E VARIEDADE</p>
+            </div>
+            <div class="text-right">
+                <span class="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-[10px] font-black uppercase">Dados Consolidados 25/26</span>
+            </div>
+        </div>
+
+        <div class="overflow-x-auto border border-slate-200 rounded-xl">
+            <table class="min-w-full divide-y divide-slate-200">
+                <thead class="bg-slate-800 text-white">
+                    <tr>
+                        <th class="px-3 py-4 text-left text-[10px] font-black uppercase tracking-wider">Fazenda</th>
+                        <th class="px-3 py-4 text-left text-[10px] font-black uppercase tracking-wider">Talhão</th>
+                        <th class="px-3 py-4 text-left text-[10px] font-black uppercase tracking-wider">Variedade</th>
+                        <th class="px-3 py-4 text-left text-[10px] font-black uppercase tracking-wider text-center">Área Plantio</th>
+                        <th class="px-2 py-4 text-left text-[10px] font-black uppercase tracking-wider text-center bg-red-900/20 text-red-900">Umid (sc)</th>
+                        <th class="px-2 py-4 text-left text-[10px] font-black uppercase tracking-wider text-center bg-red-900/20 text-red-900">Imp (sc)</th>
+                        <th class="px-2 py-4 text-left text-[10px] font-black uppercase tracking-wider text-center bg-red-900/20 text-red-900">Avar (sc)</th>
+                        <th class="px-3 py-4 text-left text-[10px] font-black uppercase tracking-wider text-center">Total Colhido (sc)</th>
+                        <th class="px-3 py-4 text-left text-[10px] font-black uppercase tracking-wider text-center">Fechamento</th>
+                        <th class="px-3 py-4 text-left text-[10px] font-black uppercase tracking-wider text-center">Cargas</th>
+                        <th class="px-3 py-4 text-left text-[10px] font-black uppercase tracking-wider text-center bg-green-100 text-green-800">Média (sc/ha)</th>
+                    </tr>
+                </thead>
+                <tbody id="fullReportTable" class="bg-white divide-y divide-slate-100"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const fazendas = [
+            { n: "RESUMO DO GRUPO", p: 21.4, sc: 58.19, col: 7033, tot: 26888, destaque: true },
+            { n: "CHAPADA", p: 100.0, sc: 71.72, col: 928, tot: 928 },
+            { n: "PARECIS", p: 100.0, sc: 65.44, col: 629, tot: 629 },
+            { n: "VANESSINHA", p: 100.0, sc: 52.28, col: 422, tot: 422 },
+            { n: "RAMADA", p: 100.0, sc: 60.68, col: 750, tot: 750 },
+            { n: "MARIMBONDO", p: 12.5, sc: 63.69, col: 140, tot: 1114 },
+            { n: "SAO GABRIEL 2", p: 19.2, sc: 56.72, col: 3417, tot: 17837 },
+            { n: "ESTANCIA", p: 81.5, sc: 44.46, col: 678, tot: 832 },
+            { n: "ACAIA", p: 0.0, sc: 0, col: 0, tot: 1724 },
+            { n: "SEVANI", p: 0.0, sc: 0, col: 0, tot: 605 },
+            { n: "SOLEDADE", p: 0.0, sc: 0, col: 0, tot: 200 },
+            { n: "VANESSA", p: 0.0, sc: 0, col: 0, tot: 568 },
+            { n: "GAUCHA", p: 0.0, sc: 0, col: 0, tot: 686 },
+            { n: "SANTA LUZIA", p: 0.0, sc: 0, col: 0, tot: 777 },
+            { n: "SAO ROQUE", p: 0.0, sc: 0, col: 0, tot: 380 },
+            { n: "ESTRELA DO SUL", p: 0.0, sc: 0, col: 0, tot: 898 }
+        ];
+
+        // Dados completos extraídos da lista enviada pelo usuário
+        const dadosCompletos = [
+            {f: "Acaia", t: "AC-01", v: "DM-68i69 IPRO", a: "350 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "Acaia", t: "AC-02", v: "DM-68i69 IPRO", a: "348 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "Acaia", t: "AC-03", v: "HO MOGI-69sc100 i2x", a: "266 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "Acaia", t: "AC-04", v: "HO MOGI-69sc100 i2x", a: "266 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "Acaia", t: "AC-05", v: "BMX ATAQUE 81IX82 I2X", a: "318 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "Acaia", t: "AC-06", v: "BMX ATAQUE 81IX82 I2X", a: "138 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "Acaia", t: "AC-07", v: "BMX ATAQUE 81IX82 I2X", a: "38 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "Sevani", t: "SE-01", v: "DM-68i69 IPRO", a: "244 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "Sevani", t: "SE-02", v: "DM-68i69 IPRO", a: "244 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "Sevani", t: "SE-03", v: "BMX ATAQUE 81IX82 I2X", a: "117 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "Estancia", t: "EG-01", v: "M-6601 i2x", a: "255 ha", dU: "- 77", dI: "- 79", dA: "", tot: "10.813,3", dt: "11/jan", c: "13", m: "42,41"},
+            {f: "Estancia", t: "EG-02", v: "M-6601 i2x", a: "235 ha", dU: "- 757", dI: "- 81", dA: "", tot: "8.918,8", dt: "11/jan", c: "12", m: "37,95"},
+            {f: "Estancia", t: "EG-03", v: "M-6601 i2x", a: "188 ha", dU: "- 595", dI: "- 83", dA: "", tot: "10.411,8", dt: "09/jan", c: "13", m: "55,38"},
+            {f: "Estancia", t: "EG-04", v: "BMX OLIMPO-80I82RSF IPRO", a: "154 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "Parecis", t: "PA-01", v: "M-6601 i2x", a: "290 ha", dU: "- 787", dI: "- 127", dA: "", tot: "19.225,7", dt: "18/jan", c: "26", m: "66,30"},
+            {f: "Parecis", t: "PA-02", v: "M-6601 i2x", a: "193 ha", dU: "- 780", dI: "- 91", dA: "", tot: "12.753,2", dt: "21/jan", c: "18", m: "66,08"},
+            {f: "Parecis", t: "PA-04", v: "M-6601 i2x", a: "146 ha", dU: "- 19", dI: "- 62", dA: "", tot: "9.184,4", dt: "19/jan", c: "14", m: "62,91"},
+            {f: "Ramada", t: "RA-01", v: "BMX OLIMPO-80I82RSF IPRO", a: "151 ha", dU: "- 814", dI: "- 65", dA: "", tot: "8.289,0", dt: "14/jan", c: "11", m: "54,89"},
+            {f: "Ramada", t: "RA-02", v: "M-6601 i2x", a: "185 ha", dU: "- 103", dI: "- 70", dA: "", tot: "10.973,3", dt: "12/jan", c: "14", m: "59,32"},
+            {f: "Ramada", t: "RA-03", v: "M-6601 i2x", a: "151 ha", dU: "- 509", dI: "- 74", dA: "", tot: "9.801,3", dt: "14/jan", c: "13", m: "64,91"},
+            {f: "Ramada", t: "RA-04", v: "M-6601 i2x", a: "148 ha", dU: "- 329", dI: "- 68", dA: "", tot: "10.039,2", dt: "15/jan", c: "13", m: "67,83"},
+            {f: "Ramada", t: "RA-05", v: "M-6601 i2x", a: "53 ha", dU: "- 45", dI: "- 15", dA: "", tot: "2.586,7", dt: "15/jan", c: "4", m: "48,81"},
+            {f: "Ramada", t: "RA-06", v: "M-6601 i2x", a: "62 ha", dU: "- 4", dI: "- 20", dA: "", tot: "3.817,4", dt: "15/jan", c: "6", m: "61,57"},
+            {f: "Soledade", t: "SO-09", v: "TMG-22x77 i2X", a: "132 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "Soledade", t: "SO-10", v: "TMG-22x77 i2X", a: "68 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "Vanessa", t: "VA-02", v: "BMX OLIMPO-80I82RSF IPRO", a: "100 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "Vanessa", t: "VA-02", v: "DM-75i74 IPRO", a: "62 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "Vanessa", t: "VA-03", v: "DM-75i74 IPRO", a: "188 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "Vanessa", t: "VA-04", v: "DM-75i74 IPRO", a: "98 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "Vanessa", t: "VA-05", v: "BMX ATAQUE 81IX82 I2X", a: "308 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "Vanessinha", t: "VH-01", v: "DM-68i69 IPRO", a: "87 ha", dU: "- 754", dI: "- 37", dA: "", tot: "5.442,6", dt: "06/jan", c: "8", m: "62,56"},
+            {f: "Vanessinha", t: "VH-02", v: "DM-68i69 IPRO", a: "94 ha", dU: "- 596", dI: "- 45", dA: "", tot: "6.384,3", dt: "07/jan", c: "9", m: "67,92"},
+            {f: "Vanessinha", t: "VH-03", v: "DM-68i69 IPRO", a: "96 ha", dU: "- 404", dI: "- 38", dA: "", tot: "4.618,5", dt: "07/jan", c: "7", m: "48,11"},
+            {f: "Vanessinha", t: "VH-04", v: "DM-68i69 IPRO", a: "96 ha", dU: "- 345", dI: "- 28", dA: "", tot: "3.246,0", dt: "07/jan", c: "5", m: "33,81"},
+            {f: "Vanessinha", t: "VH-05", v: "BMX OLIMPO-80I82RSF IPRO", a: "49 ha", dU: "- 297", dI: "- 31", dA: "", tot: "2.369,2", dt: "14/jan", c: "4", m: "48,35"},
+            {f: "Chapada", t: "CH-21", v: "DM-75i74 IPRO", a: "225 ha", dU: "- 660", dI: "- 105", dA: "", tot: "15.658,6", dt: "14/jan", c: "18", m: "69,59"},
+            {f: "Chapada", t: "CH-22", v: "DM-75i74 IPRO", a: "202 ha", dU: "- 97", dI: "- 106", dA: "", tot: "14.873,5", dt: "15/jan", c: "18", m: "73,63"},
+            {f: "Chapada", t: "CH-27", v: "DM-75i74 IPRO", a: "200 ha", dU: "- 279", dI: "- 107", dA: "", tot: "14.752,4", dt: "18/jan", c: "18", m: "73,76"},
+            {f: "Chapada", t: "CH-28", v: "DM-75i74 IPRO", a: "76 ha", dU: "- 145", dI: "- 43", dA: "", tot: "6.136,9", dt: "18/jan", c: "8", m: "80,75"},
+            {f: "Chapada", t: "CH-30", v: "DM-75i74 IPRO", a: "225 ha", dU: "- 113", dI: "- 101", dA: "", tot: "15.131,7", dt: "19/jan", c: "18", m: "67,25"},
+            {f: "Gaucha", t: "GA-01", v: "M-6601 i2x", a: "183 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "Gaucha", t: "GA-02", v: "M-6601 i2x", a: "165 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "Gaucha", t: "GA-03", v: "M-6601 i2x", a: "145 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "Gaucha", t: "GA-04", v: "S-79KA72 CE", a: "135 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "Gaucha", t: "GA-07", v: "M-6601 i2x", a: "58 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "Marimbondo", t: "MA-01", v: "DM-75i74 IPRO", a: "140 ha", dU: "- 444", dI: "- 58", dA: "", tot: "8.499,4", dt: "10/jan", c: "11", m: "60,71"},
+            {f: "Marimbondo", t: "MA-02", v: "DM-75i74 IPRO", a: "90 ha", dU: "- 246", dI: "- 55", dA: "", tot: "5.431,1", dt: "10/jan", c: "7", m: "60,35"},
+            {f: "Marimbondo", t: "MA-03", v: "DM-75i74 IPRO", a: "172 ha", dU: "- 497", dI: "- 109", dA: "", tot: "11.553,1", dt: "10/jan", c: "14", m: "67,17"},
+            {f: "Marimbondo", t: "MA-04", v: "TMG-2379 IPRO", a: "134 ha", dU: "- 86", dI: "- 26", dA: "", tot: "761,1", dt: "-", c: "1", m: "-"},
+            {f: "Marimbondo", t: "MA-05", v: "TMG-2379 IPRO", a: "175 ha", dU: "- 779", dI: "- 209", dA: "- 48", tot: "9.016,6", dt: "-", c: "12", m: "-"},
+            {f: "Marimbondo", t: "MA-07", v: "TMG-2379 IPRO", a: "80 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "Marimbondo", t: "MA-07 B", v: "TMG-2379 IPRO", a: "145 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "Marimbondo", t: "MA-20", v: "TMG-2379 IPRO", a: "48 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "Marimbondo", t: "MA-70", v: "TMG-2379 IPRO", a: "130 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "Santa Luzia", t: "SL-11", v: "BMX OLIMPO-80I82RSF IPRO", a: "237 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "Santa Luzia", t: "SL-15", v: "TMG-22x77 i2X", a: "53 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "Santa Luzia", t: "SL-17", v: "TMG-22x77 i2X", a: "104 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "Santa Luzia", t: "SL-19", v: "BMX OLIMPO-80I82RSF IPRO", a: "91 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "Santa Luzia", t: "SL-23", v: "BMX OLIMPO-80I82RSF IPRO", a: "154 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "Santa Luzia", t: "SL-23", v: "S-78KA42 CE", a: "138 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "Sao Roque", t: "SR-45", v: "S-84KA92 CE", a: "50 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "Sao Roque", t: "SR-50", v: "BMX OLIMPO-80I82RSF IPRO", a: "200 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "Sao Roque", t: "SR-58", v: "M-8644 IPRO", a: "130 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "Estrela do Sul", t: "ES-62", v: "M-8866 IPRO", a: "124 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "Estrela do Sul", t: "ES-62", v: "BRS-284", a: "89 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "Estrela do Sul", t: "ES-64", v: "M-8866 IPRO", a: "30 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "Estrela do Sul", t: "ES-64", v: "BRS-284", a: "75 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "Estrela do Sul", t: "ES-73", v: "BRS-284", a: "81 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "Estrela do Sul", t: "ES-74", v: "BRS-284", a: "56 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "Estrela do Sul", t: "ES-74", v: "M-8644 IPRO", a: "67 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "Estrela do Sul", t: "ES-82", v: "M-8644 IPRO", a: "287 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "Estrela do Sul", t: "ES-84", v: "M-8644 IPRO", a: "89 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-03", v: "M-6601 i2x", a: "300 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-04", v: "M-6601 i2x", a: "326 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-05", v: "M-6601 i2x", a: "308 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-06", v: "M-6601 i2x", a: "100 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-07", v: "M-6601 i2x", a: "109 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-08", v: "BMX OLIMPO-80I82RSF IPRO", a: "165 ha", dU: "- 358", dI: "- 97", dA: "- 8", tot: "10.382,1", dt: "10/jan", c: "14", m: "62,92"},
+            {f: "SAO GABRIEL 2", t: "SG-11 A", v: "HO MOGI-69sc100 i2x", a: "172 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-11 B", v: "DM-75i74 IPRO", a: "125 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-16", v: "HO MOGI-69sc100 i2x", a: "139 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-17", v: "6930 i2x", a: "243 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-21", v: "HO MOGI-69sc100 i2x", a: "232 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-22 A", v: "HO MOGI-69sc100 i2x", a: "160 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-22 B", v: "S-76KA72 CE", a: "118 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-25", v: "HO MOGI-69sc100 i2x", a: "81 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-26", v: "DM-68i69 IPRO", a: "301 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-28", v: "DM-68i69 IPRO", a: "284 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-29", v: "DM-68i69 IPRO", a: "300 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-30", v: "M-6601 i2x", a: "297 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-32", v: "BMX OLIMPO-80I82RSF IPRO", a: "195 ha", dU: "- 594", dI: "- 114", dA: "", tot: "11.945,7", dt: "10/jan", c: "15", m: "61,26"},
+            {f: "SAO GABRIEL 2", t: "SG-34", v: "BMX OLIMPO-80I82RSF IPRO", a: "125 ha", dU: "- 863", dI: "- 105", dA: "- 1.530", tot: "5.001,7", dt: "18/jan", c: "11", m: "40,01"},
+            {f: "SAO GABRIEL 2", t: "SG-38", v: "M-6601 i2x", a: "118 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-39", v: "M-6601 i2x", a: "212 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-40", v: "M-6601 i2x", a: "312 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-42", v: "M-6601 i2x", a: "403 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-44", v: "M-6601 i2x", a: "244 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-50", v: "BMX ATAQUE 81IX82 I2X", a: "27 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-50", v: "HO MOGI-69sc100 i2x", a: "175 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-52", v: "BMX OLIMPO-80I82RSF IPRO", a: "392 ha", dU: "- 2.285", dI: "- 233", dA: "- 54", tot: "28.460,5", dt: "18/jan", c: "38", m: "72,60"},
+            {f: "SAO GABRIEL 2", t: "SG-60", v: "BMX ATAQUE 81IX82 I2X", a: "236 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-62", v: "BMX ÍMPETO-90IX87RSF I2X", a: "392 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-66 A", v: "BMX OLIMPO-80I82RSF IPRO", a: "186 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-66 B", v: "BMX OLIMPO-80I82RSF IPRO", a: "180 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-69", v: "BMX ATAQUE 81IX82 I2X", a: "263 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-70", v: "BMX ATAQUE 81IX82 I2X", a: "272 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-72", v: "BMX ÍMPETO-90IX87RSF I2X", a: "394 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-76 A", v: "M-8644 IPRO", a: "66 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-76 B", v: "M-8644 IPRO", a: "91 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-76 B", v: "S-78KA42 CE", a: "36 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-79", v: "HO MOGI-69sc100 i2x", a: "205 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-80", v: "HO MOGI-69sc100 i2x", a: "273 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-82", v: "HO JURUENA-84i85 IPRO", a: "401 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-84", v: "S-76KA72 CE", a: "197 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-86", v: "S-79KA72 CE", a: "55 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-89", v: "HO MOGI-69sc100 i2x", a: "141 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-90", v: "HO MOGI-69sc100 i2x", a: "232 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-92", v: "HO JURUENA-84i85 IPRO", a: "267 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-92", v: "HO MOGI-69sc100 i2x", a: "130 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-94", v: "S-76KA72 CE", a: "200 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-96", v: "S-78KA42 CE", a: "88 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-102", v: "HO JURUENA-84i85 IPRO", a: "36 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-102", v: "S-79KA72 CE", a: "75 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-104", v: "S-78KA42 CE", a: "120 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-106", v: "S-78KA42 CE", a: "75 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-209", v: "LENDA PP8411 IPRO", a: "100 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-209", v: "DM-80i85 IPRO", a: "77 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-210", v: "BMX ÍMPETO-90IX87RSF I2X", a: "269 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-211", v: "M-8866 IPRO", a: "102 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-212", v: "M-8866 IPRO", a: "189 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-219", v: "BMX OLIMPO-80I82RSF IPRO", a: "271 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-220", v: "BMX OLIMPO-80I82RSF IPRO", a: "223 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-220", v: "BMX ÍMPETO-90IX87RSF I2X", a: "43 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-221", v: "M-8866 IPRO", a: "217 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-222", v: "M-8866 IPRO", a: "186 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-231", v: "M-8866 IPRO", a: "234 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-232", v: "M-8866 IPRO", a: "155 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-242", v: "M-8866 IPRO", a: "186 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-253", v: "M-8866 IPRO", a: "242 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-310", v: "M-6601 i2x", a: "283 ha", dU: "- 1.902", dI: "- 128", dA: "", tot: "14.819,1", dt: "09/jan", c: "21", m: "52,36"},
+            {f: "SAO GABRIEL 2", t: "SG-311", v: "DM-75i74 IPRO", a: "109 ha", dU: "- 282", dI: "- 45", dA: "", tot: "5.782,7", dt: "15/jan", c: "7", m: "53,05"},
+            {f: "SAO GABRIEL 2", t: "SG-312", v: "DM-75i74 IPRO", a: "183 ha", dU: "- 95", dI: "- 94", dA: "", tot: "11.619,7", dt: "15/jan", c: "14", m: "63,50"},
+            {f: "SAO GABRIEL 2", t: "SG-314", v: "DM-75i74 IPRO", a: "71 ha", dU: "- 13", dI: "- 31", dA: "", tot: "3.647,0", dt: "16/jan", c: "5", m: "51,37"},
+            {f: "SAO GABRIEL 2", t: "SG-315", v: "M-8866 IPRO", a: "112 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-316", v: "M-8866 IPRO", a: "111 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-317", v: "M-8866 IPRO", a: "114 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-320", v: "M-6601 i2x", a: "241 ha", dU: "- 1.559", dI: "- 119", dA: "- 17", tot: "9.916,7", dt: "14/jan", c: "15", m: "41,15"},
+            {f: "SAO GABRIEL 2", t: "SG-322", v: "DM-75i74 IPRO", a: "130 ha", dU: "- 189", dI: "- 78", dA: "", tot: "8.486,9", dt: "17/jan", c: "12", m: "65,28"},
+            {f: "SAO GABRIEL 2", t: "SG-324", v: "DM-75i74 IPRO", a: "161 ha", dU: "- 884", dI: "- 150", dA: "", tot: "10.430,6", dt: "14/jan", c: "15", m: "64,79"},
+            {f: "SAO GABRIEL 2", t: "SG-326", v: "DM-75i74 IPRO", a: "159 ha", dU: "- 715", dI: "- 74", dA: "- 3", tot: "9.006,9", dt: "12/jan", c: "14", m: "56,65"},
+            {f: "SAO GABRIEL 2", t: "SG-330", v: "DM-75i74 IPRO", a: "56 ha", dU: "- 311", dI: "- 39", dA: "", tot: "3.885,0", dt: "17/jan", c: "6", m: "69,38"},
+            {f: "SAO GABRIEL 2", t: "SG-331", v: "LENDA PP8411 IPRO", a: "39 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-332", v: "DM-75i74 IPRO", a: "215 ha", dU: "- 101", dI: "- 114", dA: "", tot: "14.308,9", dt: "15/jan", c: "17", m: "66,55"},
+            {f: "SAO GABRIEL 2", t: "SG-333", v: "DM-75i74 IPRO", a: "174 ha", dU: "- 618", dI: "- 79", dA: "- 13", tot: "9.121,1", dt: "11/jan", c: "12", m: "52,42"},
+            {f: "SAO GABRIEL 2", t: "SG-334", v: "DM-75i74 IPRO", a: "153 ha", dU: "- 1.499", dI: "- 94", dA: "", tot: "8.341,9", dt: "08/jan", c: "13", m: "54,52"},
+            {f: "SAO GABRIEL 2", t: "SG-335", v: "DM-80i85 IPRO", a: "103 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-337", v: "BMX ATAQUE 81IX82 I2X", a: "214 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-341", v: "BMX ATAQUE 81IX82 I2X", a: "173 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-343", v: "BMX ATAQUE 81IX82 I2X", a: "104 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-345", v: "BMX ATAQUE 81IX82 I2X", a: "196 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-347", v: "BMX ATAQUE 81IX82 I2X", a: "288 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-380", v: "DM-68i69 IPRO", a: "226 ha", dU: "- 475", dI: "- 99", dA: "- 101", tot: "10.049,6", dt: "11/jan", c: "13", m: "44,47"},
+            {f: "SAO GABRIEL 2", t: "SG-381", v: "DM-68i69 IPRO", a: "198 ha", dU: "- 1.076", dI: "- 105", dA: "- 80", tot: "10.635,6", dt: "12/jan", c: "14", m: "53,72"},
+            {f: "SAO GABRIEL 2", t: "SG-382 A", v: "DM-68i69 IPRO", a: "162 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-383", v: "DM-75i74 IPRO", a: "112 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-384 A", v: "BMX ÍMPETO-90IX87RSF I2X", a: "148 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-385 A", v: "BMX ÍMPETO-90IX87RSF I2X", a: "148 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-386 A", v: "M-8644 IPRO", a: "109 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-387 A", v: "M-8644 IPRO", a: "96 ha", dU: "", dI: "", dA: "", tot: "-", dt: "-", c: "-", m: "-"},
+            {f: "SAO GABRIEL 2", t: "SG-391", v: "M-6601 i2x", a: "181 ha", dU: "- 508", dI: "- 87", dA: "", tot: "9.414,3", dt: "10/jan", c: "14", m: "52,01"}
+        ];
+
+        // Converte dadosCompletos para o formato usado nos Modais (objeto 'talhoes')
+        const talhoes = dadosCompletos.map(item => ({
+            f: item.f,
+            t: item.t,
+            v: item.v,
+            a: parseFloat(item.a.replace(' ha', '').replace('.', '')),
+            sc: item.m !== "-" ? parseFloat(item.m.replace(',', '.')) : null
+        }));
+
+        const reportBody = document.getElementById('fullReportTable');
+        dadosCompletos.forEach(item => {
+            reportBody.innerHTML += `
+                <tr class="hover:bg-slate-50 transition-colors text-[11px]">
+                    <td class="px-3 py-2 font-bold text-slate-800 border-r border-slate-100">${item.f}</td>
+                    <td class="px-3 py-2 font-black text-blue-700">${item.t}</td>
+                    <td class="px-3 py-2 text-slate-600">${item.v}</td>
+                    <td class="px-3 py-2 text-center text-slate-500 font-bold">${item.a}</td>
+                    <td class="px-2 py-2 text-center text-red-600 font-bold bg-red-50/30">${item.dU || '-'}</td>
+                    <td class="px-2 py-2 text-center text-red-600 font-bold bg-red-50/30">${item.dI || '-'}</td>
+                    <td class="px-2 py-2 text-center text-red-600 font-bold bg-red-50/30">${item.dA || '-'}</td>
+                    <td class="px-3 py-2 text-center font-black text-slate-700">${item.tot}</td>
+                    <td class="px-3 py-2 text-center text-slate-400 font-bold">${item.dt}</td>
+                    <td class="px-3 py-2 text-center text-slate-700 font-bold">${item.c}</td>
+                    <td class="px-3 py-2 text-center font-black ${item.m !== '-' ? 'text-green-700 bg-green-50' : 'text-slate-300'}">${item.m}</td>
+                </tr>
+            `;
+        });
+
+        function filterTable() {
+            const input = document.getElementById('searchInput');
+            const filter = input.value.toUpperCase();
+            const tr = document.getElementById('talhoesTable').getElementsByTagName('tr');
+            for (let i = 0; i < tr.length; i++) {
+                const text = tr[i].textContent || tr[i].innerText;
+                tr[i].style.display = text.toUpperCase().indexOf(filter) > -1 ? "" : "none";
+            }
+        }
+
+        function openModal(nomeFazenda) {
+            const modal = document.getElementById('modal');
+            const tableBody = document.getElementById('talhoesTable');
+            const header = document.getElementById('tableHeader');
+            document.getElementById('searchInput').value = ''; 
+            document.getElementById('modalTitle').innerText = nomeFazenda;
+            tableBody.innerHTML = '';
+
+            let filtrados = (nomeFazenda === "RESUMO DO GRUPO") ? talhoes : talhoes.filter(t => t.f.toUpperCase() === nomeFazenda.toUpperCase());
+            let mostrarFazenda = (nomeFazenda === "RESUMO DO GRUPO");
+
+            header.innerHTML = `
+                ${mostrarFazenda ? '<th class="px-4 py-3 text-left text-[10px] font-black text-slate-500 uppercase">Fazenda</th>' : ''}
+                <th class="px-4 py-3 text-left text-[10px] font-black text-slate-500 uppercase">Talhão</th>
+                <th class="px-4 py-3 text-left text-[10px] font-black text-slate-500 uppercase">Variedade</th>
+                <th class="px-4 py-3 text-left text-[10px] font-black text-slate-500 uppercase text-center">Área</th>
+                <th class="px-4 py-3 text-left text-[10px] font-black text-slate-500 uppercase text-center">Status / Prod.</th>
+            `;
+
+            filtrados.forEach(t => {
+                const status = t.sc !== null 
+                    ? `<span class="bg-green-100 text-green-700 px-2 py-1 rounded text-[10px] font-black">${t.sc.toFixed(2)} SC/HA</span>`
+                    : `<span class="bg-slate-100 text-slate-500 px-2 py-1 rounded text-[10px] font-black italic uppercase">Falta Colher</span>`;
+                
+                tableBody.innerHTML += `
+                    <tr class="hover:bg-slate-50">
+                        ${mostrarFazenda ? `<td class="px-4 py-3 text-[11px] font-bold text-blue-600">${t.f}</td>` : ''}
+                        <td class="px-4 py-3 text-sm font-bold text-slate-700">${t.t}</td>
+                        <td class="px-4 py-3 text-sm text-slate-600">${t.v}</td>
+                        <td class="px-4 py-3 text-sm text-slate-600 text-center">${t.a} ha</td>
+                        <td class="px-4 py-3 text-sm text-center">${status}</td>
+                    </tr>
+                `;
+            });
+            modal.style.display = 'flex';
+        }
+
+        function closeModal() { document.getElementById('modal').style.display = 'none'; }
+
+        const grid = document.getElementById('farmGrid');
+        fazendas.forEach((f, i) => {
+            grid.innerHTML += `
+                <div onclick="openModal('${f.n}')" class="card p-8 flex flex-col justify-between transition-all hover:shadow-xl cursor-pointer active:scale-95 ${f.destaque ? 'ring-4 ring-blue-500 border-transparent' : 'hover:border-blue-300'}">
+                    <h3 class="text-sm font-extrabold text-slate-700 text-center mb-6 tracking-widest uppercase">${f.n}</h3>
+                    <div class="flex justify-center gap-6 mb-6">
+                        <div class="flex items-center gap-2"><div class="w-3 h-3 rounded-full bg-yellow-400"></div><span class="text-[10px] font-bold text-slate-400 uppercase">Colhido</span></div>
+                        <div class="flex items-center gap-2"><div class="w-3 h-3 rounded-full bg-green-800"></div><span class="text-[10px] font-bold text-slate-400 uppercase">Falta Colher</span></div>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="c-${i}"></canvas>
+                        <div class="absolute inset-0 flex flex-col items-center justify-center">
+                            <span class="text-3xl font-black text-slate-800">${f.p}%</span>
+                            <span class="text-xs font-bold text-slate-500">${f.sc} sc/ha</span>
+                        </div>
+                    </div>
+                    <div class="mt-8 pt-6 border-t border-slate-100">
+                        <p class="text-xs font-black text-slate-400 text-center uppercase tracking-tighter">${f.col.toLocaleString('pt-BR')} ha colhidos de ${f.tot.toLocaleString('pt-BR')} ha</p>
+                    </div>
+                </div>
+            `;
+        });
+
+        const rankingData = fazendas.filter(f => !f.destaque).sort((a,b) => b.sc - a.sc);
+        new Chart(document.getElementById('rankingChart'), {
+            type: 'bar', plugins: [ChartDataLabels],
+            data: {
+                labels: rankingData.map(f => f.n),
+                datasets: [{ data: rankingData.map(f => f.sc), backgroundColor: '#1e293b', borderRadius: 4, barThickness: 18 }]
+            },
+            options: {
+                indexAxis: 'y', maintainAspectRatio: false,
+                layout: { padding: { right: 80 } },
+                plugins: { 
+                    legend: { display: false },
+                    datalabels: {
+                        anchor: 'end', align: 'right', offset: 8, color: '#1e293b',
+                        font: { weight: '800', size: 11 },
+                        formatter: (v) => v > 0 ? v.toFixed(2) + ' sc' : '0'
+                    }
+                },
+                scales: { 
+                    x: { grid: { color: '#f1f5f9' }, ticks: { font: { size: 11, weight: 'bold' } }, suggestedMax: 85 },
+                    y: { grid: { display: false }, ticks: { font: { size: 11, weight: 'bold' } } }
+                }
+            }
+        });
+
+        fazendas.forEach((f, i) => {
+            new Chart(document.getElementById(`c-${i}`), {
+                type: 'doughnut',
+                data: { datasets: [{ data: [f.p, 100 - f.p], backgroundColor: ['#facc15', '#166534'], borderWidth: 0 }] },
+                options: { cutout: '80%', plugins: { tooltip: { enabled: false } } }
+            });
+        });
+    </script>
+</body>
+</html>
